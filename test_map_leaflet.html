@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+
+    <head>
+        <meta charset="utf-8" />
+        <title>マップ</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>
+            html,
+            body,
+            #map {
+                height: 100%;
+                margin: 0;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="map"></div>
+
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+        <script>
+            /*
+             * このスクリプトは Leaflet を利用して地図を初期化し、
+             * OpenStreetMap タイルを貼り付けた上で Nominatim API によるジオコーディング結果を
+             * プロットする一連の流れを実現している。
+             * 処理の骨子とデータの流れが把握しやすいよう、病的なほど詳細なコメントで
+             * 各行・各ブロックが担う役割を明記している。
+             */
+
+            // `places` はジオコーディングを行いたい地名の配列。index=0 の「東京駅」はマップの範囲に含めたいが
+            // 強調表示は避けたいのでマーカー生成の対象から外す。index=1 の「フィリピン」は通常どおりマーカーを立てる。
+            const places = ["東京駅", "フィリピン"];
+
+            // Leaflet のエントリポイント。`L.map("map")` で DOM 上の <div id="map"> をレンダリングの台座にし、
+            // `.setView([35.5, 137.0], 6)` で初期表示の中心座標とズーム段階を規定する。
+            const map = L.map("map").setView([35.5, 137.0], 6);
+
+            // ベース地図のタイルを供給するレイヤ。OpenStreetMap の標準タイルサーバを利用し、
+            // `{s}`, `{z}`, `{x}`, `{y}` プレースホルダは Leaflet が自動で具体的な値に差し替える。
+            // `maxZoom` は最大ズームレベル、`attribution` は OSM のライセンス順守のために必須のクレジット表記。
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 18,
+                attribution: "c OpenStreetMap contributors"
+            }).addTo(map);
+
+            // `bounds` は後段の `map.fitBounds` で利用するための配列。訪問した全地点の [lat, lon] を蓄積し、
+            // マップ表示がこれらすべてを収めるよう自動的にパン・ズーム調整するための素材となる。
+            const bounds = [];
+
+            // `addMarkers` は非同期関数。fetch API を await して Nominatim のレスポンスを待ち受け、
+            // 取得した座標をもとにマーカー追加やズーム補正を段階的に進める。
+            async function addMarkers() {
+                // `places.entries()` は [index, value] のタプルを逐次返す。index を保持することで「先頭だけマーカーを建てない」という制御を実現する。
+                for (const [index, name] of places.entries()) {
+                    // Nominatim にリクエストする際の URL。地名部分は `encodeURIComponent` でエンコードして安全なクエリ文字列に変換する。
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}`;
+
+                    // fetch で HTTP GET リクエストを発行。Accept-Language に "ja" を指定し、可能な限り日本語寄りの候補情報を得る。
+                    const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
+
+                    // レスポンス本文を JSON として解析。`await res.json()` は非同期処理で、解析完了まで次の行に進まない。
+                    const data = await res.json();
+
+                    // data 配列に 1 件以上の候補が存在した場合のみ処理を継続。0 件ならマーカーも bounds も更新しない。
+                    if (data && data.length > 0) {
+                        // 最上位に提示される候補 (`data[0]`) を採用し、lat/lon 文字列を浮動小数に変換して実数座標に整える。
+                        const loc = data[0];
+                        const lat = parseFloat(loc.lat);
+                        const lon = parseFloat(loc.lon);
+
+                        // bounds 配列に今回の地点を記録。マーカーを建てなくてもズーム調整には寄与させたいので必ず push する。
+                        bounds.push([lat, lon]);
+
+                        // index が 0、すなわち東京駅であればここでループの次周へスキップ。
+                        // マーカー自体は生成しないことで「存在はするが目立たない」状態を実現している。
+                        if (index === 0) {
+                            continue;
+                        }
+
+                        // 先頭以外の地点については通常どおり Leaflet のマーカーを生成し、地図に追加する。
+                        const marker = L.marker([lat, lon]).addTo(map);
+
+                        // ポップアップには地名を強調表示してセット。これによりクリック時に地名が明示される。
+                        marker.bindPopup(`<strong>${name}</strong>`);
+                    }
+                }
+
+                // bounds に 1 つ以上の座標が登録されていれば fitBounds を呼び出し、
+                // 全地点が見切れず収まるようにパンとズームを Leaflet に任せて調整させる。padding 50 は余白確保のため。
+                if (bounds.length > 0) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+
+            // 非同期関数をキックしてジオコーディングとマーカー配置プロセスを開始。返り値の Promise は今回待たず、
+            // イベントループに処理を預けつつ UI をブロックしない設計にしている。
+            addMarkers();
+        </script>
+    </body>
+
+</html>

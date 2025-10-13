@@ -38,6 +38,21 @@
                 border-bottom: 1px solid #eee;
             }
 
+            .card-footer {
+                padding: 6px 8px;
+                font-size: 12px;
+                border-top: 1px solid #eee;
+                color: #666;
+            }
+
+            /* ページ下部に1箇所だけ出す簡易クレジット */
+            .site-footer {
+                padding: 8px 12px;
+                font-size: 12px;
+                color: #666;
+                border-top: 1px solid #eee;
+            }
+
             /* マップ領域はカードの残りを占有 */
             .map {
                 flex: 1 1 auto;
@@ -49,13 +64,22 @@
     <body>
         <div id="wrap">
             <div class="card">
-                <div class="card-header">長野県 / フィリピン</div>
+                <div class="card-header">フィリピン</div>
                 <div id="map1" class="map"></div>
             </div>
             <div class="card">
-                <div class="card-header">長野県 / 大坂</div>
+                <div class="card-header">大坂</div>
                 <div id="map2" class="map"></div>
             </div>
+        </div>
+
+        <div class="site-footer">
+            <small>
+                このページの地図は
+                <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">www.openstreetmap.org</a>
+                を利用しています。データ提供：
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+            </small>
         </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -69,15 +93,14 @@
              * 各行・各ブロックが担う役割を明記している。
              */
 
-            // 共通のマップ初期化関数。引数の places で個別の地図に違う地点セットを描画できる。
-            function createMap(containerId, places) {
-                // マップの作成と初期表示設定（長野県付近をデフォルトに）
-                const map = L.map(containerId).setView([36.65, 138.19], 7);
+            // 共通のマップ初期化関数。引数 defaultViewPoint（初期視点）と endPlace（目的地名）を渡して描画する。
+            function createMap(containerId, defaultViewPoint, endPlace) {
+                // マップの作成と初期表示設定（渡された STARTPOINT を適用）
+                const map = L.map(containerId, { attributionControl: false }).setView(defaultViewPoint.center, defaultViewPoint.zoom);
 
                 // OSM タイルレイヤ
                 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                    maxZoom: 18,
-                    attribution: places[1]
+                    maxZoom: 18
                 }).addTo(map);
 
                 // 表示範囲調整用の座標蓄積
@@ -85,7 +108,8 @@
 
                 // マーカー配置（先頭は強調せず、範囲計算のみ寄与）
                 (async () => {
-                    for (const [index, name] of places.entries()) {
+                    // 配列.entries() で [index, value] の形にして先頭だけマーカーを出さない
+                    for (const [index, name] of [defaultViewPoint.name, endPlace].entries()) {
                         const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`;
                         const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
                         const data = await res.json();
@@ -109,11 +133,18 @@
                 return map;
             }
 
-            // 1枚目: 東京駅は範囲のみ寄与、フィリピンにマーカー
-            createMap("map1", ["東京駅", "フィリピン"]);
+            // STARTPOINT: 初期視点を外から渡すためのオブジェクト
+            const defaultViewPoint = {
+                name: "長野",
+                center: [36.65, 138.19],
+                zoom: 7
+            };
 
-            // 2枚目: 東京駅は範囲のみ寄与、大坂にマーカー（ユーザー指定）
-            createMap("map2", ["東京駅", "大坂"]);
+            // 1枚目
+            createMap("map1", defaultViewPoint, "フィリピン");
+
+            // 2枚目
+            createMap("map2", defaultViewPoint, "大坂");
         </script>
     </body>
 

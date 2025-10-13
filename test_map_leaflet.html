@@ -64,21 +64,18 @@
     <body>
         <div id="wrap">
             <div class="card">
-                <div class="card-header">フィリピン</div>
+                <div class="card-header"></div>
                 <div id="map1" class="map"></div>
             </div>
             <div class="card">
-                <div class="card-header">大坂</div>
+                <div class="card-header"></div>
                 <div id="map2" class="map"></div>
             </div>
         </div>
 
         <div class="site-footer">
             <small>
-                このページの地図は
-                <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">www.openstreetmap.org</a>
-                を利用しています。データ提供：
-                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+                地図データ提供：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
             </small>
         </div>
 
@@ -93,58 +90,74 @@
              * 各行・各ブロックが担う役割を明記している。
              */
 
-            // 共通のマップ初期化関数。引数 defaultViewPoint（初期視点）と endPlace（目的地名）を渡して描画する。
-            function createMap(containerId, defaultViewPoint, endPlace) {
-                // マップの作成と初期表示設定（渡された STARTPOINT を適用）
-                const map = L.map(containerId, { attributionControl: false }).setView(defaultViewPoint.center, defaultViewPoint.zoom);
+            // カード見出しを設定するヘルパー（初心者向けにシンプルな関数として定義）
+            function setCardHeader(containerId, titleText) {
+                const mapEl = document.getElementById(containerId);
+                if (!mapEl) return;
+                const headerEl = mapEl.previousElementSibling;
+                if (!headerEl || !headerEl.classList.contains('card-header')) return;
+                headerEl.textContent = titleText || '';
+            }
 
-                // OSM タイルレイヤ
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                    maxZoom: 18
-                }).addTo(map);
+            // 使い回し用の簡単なジオコーディング関数（見つからなければ null を返す）
+            async function geocode(placeName) {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(placeName)}&limit=1`;
+                const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const loc = data[0];
+                    return [parseFloat(loc.lat), parseFloat(loc.lon)];
+                }
+                return null;
+            }
 
-                // 表示範囲調整用の座標蓄積
+            // 汎用の地図作成。options は以下の形：
+            // { startPoint: STARTPOINT, places: ["目的地1", ...] }
+            function createMap(containerId, options) {
+                const opts = options || {};
+                const startPoint = opts.startPoint || STARTPOINT;
+                const places = opts.places || [];
+                // 起点はマーカーを出さず、表示範囲にのみ寄与させる固定仕様
+
+                const map = L.map(containerId, { attributionControl: false }).setView(startPoint.center, startPoint.zoom);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+
                 const bounds = [];
 
-                // マーカー配置（先頭は強調せず、範囲計算のみ寄与）
-                (async () => {
-                    // 配列.entries() で [index, value] の形にして先頭だけマーカーを出さない
-                    for (const [index, name] of [defaultViewPoint.name, endPlace].entries()) {
-                        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`;
-                        const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
-                        const data = await res.json();
-                        if (data && data.length > 0) {
-                            const loc = data[0];
-                            const lat = parseFloat(loc.lat);
-                            const lon = parseFloat(loc.lon);
-                            bounds.push([lat, lon]);
-                            if (index !== 0) {
-                                const marker = L.marker([lat, lon]).addTo(map);
-                                marker.bindPopup(`<strong>${name}</strong>`);
-                            }
-                        }
-                    }
+                // カードの見出しを設定（重複定義を避ける）
+                const titleText = opts.title || (places[0] || startPoint.name);
+                setCardHeader(containerId, titleText);
 
+                async function addPlaces() {
+                    // まず起点（STARTPOINT）を範囲に入れる（ジオコーディング不要、マーカー無し）
+                    bounds.push(startPoint.center);
+
+                    // 目的地を順に処理（初心者向けに分かりやすく）
+                    for (let i = 0; i < places.length; i++) {
+                        const name = places[i];
+                        const latLng = await geocode(name); // [lat, lon]
+                        if (!latLng) { continue; }
+                        bounds.push(latLng);
+                        const marker = L.marker(latLng).addTo(map);
+                        marker.bindPopup(`<strong>${name}</strong>`);
+                    }
                     if (bounds.length > 0) {
                         map.fitBounds(bounds, { padding: [50, 50] });
                     }
-                })();
+                }
 
+                addPlaces();
                 return map;
             }
 
-            // STARTPOINT: 初期視点を外から渡すためのオブジェクト
-            const defaultViewPoint = {
-                name: "長野",
-                center: [36.65, 138.19],
-                zoom: 7
-            };
+            // 設定は呼び出し直前にまとめる（STARTPOINT など）
+            const STARTPOINT = { name: "長野", center: [36.65, 138.19], zoom: 7 };
 
-            // 1枚目
-            createMap("map1", defaultViewPoint, "フィリピン");
+            // 1枚目（起点は STARTPOINT、起点はマーカー無し）
+            createMap("map1", { startPoint: STARTPOINT, places: ["フィリピン"] });
 
-            // 2枚目
-            createMap("map2", defaultViewPoint, "大坂");
+            // 2枚目（起点は STARTPOINT、起点はマーカー無し）
+            createMap("map2", { startPoint: STARTPOINT, places: ["大坂"] });
         </script>
     </body>
 

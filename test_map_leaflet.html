@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <!-- ブラウザーを標準モードで動作させるために DOCTYPE を明示 -->
 <html lang="ja">
 
@@ -19,12 +19,12 @@
         <div id="wrap">
             <!-- 地図カードの本体ここから -->
             <div class="card">
-                <div class="card-header"></div>
+                <div  id="map1-header" class="card-header"></div>
                 <div id="map1" class="map"></div>
             </div>
             <!-- 比較用にもう一枚地図カードを配置 -->
             <div class="card">
-                <div class="card-header"></div>
+                <div  id="map2-header" class="card-header"></div>
                 <div id="map2" class="map"></div>
             </div>
         </div>
@@ -47,26 +47,21 @@
              */
 
             // カード見出しを設定する補助関数（教材向けにあえて簡潔な作り）
-            function setCardHeader(containerId, titleText) {
-                // containerId はこのファイル内で完結する前提なので信頼して扱う
-                const mapEl = document.getElementById(containerId);
-                // 直接 DOM を参照して余計な依存を持たせない
-                if (!mapEl) return;
-                // 対象要素が無いときは静かに抜けてコンソールを汚さない
-                const headerEl = mapEl.previousElementSibling;
-                // カード構造上ヘッダーは地図要素の直前にある想定
-                if (!headerEl || !headerEl.classList.contains('card-header')) return;
-                // 想定外にマークアップが入れ替わった場合に備えて処理を打ち切る
-                headerEl.textContent = titleText || '';
-                // 空文字を入れて "undefined" や "null" が表示されるのを防ぐ
-            }
+            function setCardHeader(headerId, titleText) {
+                const headerEl = document.getElementById(headerId);
 
+                // ヘッダー要素が取得できない場合は静かに中断
+                if (!headerEl) return;
+
+                // 空文字を入れて "undefined" や "null" などが出ないようにする
+                headerEl.textContent = titleText || '';
+            }
 
 
             // カード UI と地図生成を束ねる薄いファサード。
             // ヘッダーを整えてから createMap に処理を委譲する。
             function setCardMap(containerId, headerText, startPoint, placeName) {
-                setCardHeader(containerId, headerText);
+                setCardHeader(`${containerId}-header`, headerText);
                 return createMap(containerId, startPoint, placeName);
             }
 

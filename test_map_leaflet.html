@@ -7,17 +7,56 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <style>
-            html,
-            body,
-            #map {
+            html, body {
                 height: 100%;
                 margin: 0;
+            }
+
+            /* ラッパー（横並び、必要なら折り返し） */
+            #wrap {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                padding: 12px;
+                align-items: flex-start;
+            }
+
+            /* とても簡素なカード */
+            .card {
+                width: 300px;
+                height: 400px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fff;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .card-header {
+                padding: 8px 10px;
+                font-size: 14px;
+                border-bottom: 1px solid #eee;
+            }
+
+            /* マップ領域はカードの残りを占有 */
+            .map {
+                flex: 1 1 auto;
+                min-height: 0; /* Flex 子要素の高さ計算を正しくするため */
             }
         </style>
     </head>
 
     <body>
-        <div id="map"></div>
+        <div id="wrap">
+            <div class="card">
+                <div class="card-header">長野県 / フィリピン</div>
+                <div id="map1" class="map"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">長野県 / 大坂</div>
+                <div id="map2" class="map"></div>
+            </div>
+        </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -30,74 +69,51 @@
              * 各行・各ブロックが担う役割を明記している。
              */
 
-            // `places` はジオコーディングを行いたい地名の配列。index=0 の「東京駅」はマップの範囲に含めたいが
-            // 強調表示は避けたいのでマーカー生成の対象から外す。index=1 の「フィリピン」は通常どおりマーカーを立てる。
-            const places = ["東京駅", "フィリピン"];
+            // 共通のマップ初期化関数。引数の places で個別の地図に違う地点セットを描画できる。
+            function createMap(containerId, places) {
+                // マップの作成と初期表示設定（長野県付近をデフォルトに）
+                const map = L.map(containerId).setView([36.65, 138.19], 7);
 
-            // Leaflet のエントリポイント。`L.map("map")` で DOM 上の <div id="map"> をレンダリングの台座にし、
-            // `.setView([35.5, 137.0], 6)` で初期表示の中心座標とズーム段階を規定する。
-            const map = L.map("map").setView([35.5, 137.0], 6);
+                // OSM タイルレイヤ
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 18,
+                    attribution: places[1]
+                }).addTo(map);
 
-            // ベース地図のタイルを供給するレイヤ。OpenStreetMap の標準タイルサーバを利用し、
-            // `{s}`, `{z}`, `{x}`, `{y}` プレースホルダは Leaflet が自動で具体的な値に差し替える。
-            // `maxZoom` は最大ズームレベル、`attribution` は OSM のライセンス順守のために必須のクレジット表記。
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                maxZoom: 18,
-                attribution: "c OpenStreetMap contributors"
-            }).addTo(map);
+                // 表示範囲調整用の座標蓄積
+                const bounds = [];
 
-            // `bounds` は後段の `map.fitBounds` で利用するための配列。訪問した全地点の [lat, lon] を蓄積し、
-            // マップ表示がこれらすべてを収めるよう自動的にパン・ズーム調整するための素材となる。
-            const bounds = [];
-
-            // `addMarkers` は非同期関数。fetch API を await して Nominatim のレスポンスを待ち受け、
-            // 取得した座標をもとにマーカー追加やズーム補正を段階的に進める。
-            async function addMarkers() {
-                // `places.entries()` は [index, value] のタプルを逐次返す。index を保持することで「先頭だけマーカーを建てない」という制御を実現する。
-                for (const [index, name] of places.entries()) {
-                    // Nominatim にリクエストする際の URL。地名部分は `encodeURIComponent` でエンコードして安全なクエリ文字列に変換する。
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}`;
-
-                    // fetch で HTTP GET リクエストを発行。Accept-Language に "ja" を指定し、可能な限り日本語寄りの候補情報を得る。
-                    const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
-
-                    // レスポンス本文を JSON として解析。`await res.json()` は非同期処理で、解析完了まで次の行に進まない。
-                    const data = await res.json();
-
-                    // data 配列に 1 件以上の候補が存在した場合のみ処理を継続。0 件ならマーカーも bounds も更新しない。
-                    if (data && data.length > 0) {
-                        // 最上位に提示される候補 (`data[0]`) を採用し、lat/lon 文字列を浮動小数に変換して実数座標に整える。
-                        const loc = data[0];
-                        const lat = parseFloat(loc.lat);
-                        const lon = parseFloat(loc.lon);
-
-                        // bounds 配列に今回の地点を記録。マーカーを建てなくてもズーム調整には寄与させたいので必ず push する。
-                        bounds.push([lat, lon]);
-
-                        // index が 0、すなわち東京駅であればここでループの次周へスキップ。
-                        // マーカー自体は生成しないことで「存在はするが目立たない」状態を実現している。
-                        if (index === 0) {
-                            continue;
+                // マーカー配置（先頭は強調せず、範囲計算のみ寄与）
+                (async () => {
+                    for (const [index, name] of places.entries()) {
+                        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&limit=1`;
+                        const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
+                        const data = await res.json();
+                        if (data && data.length > 0) {
+                            const loc = data[0];
+                            const lat = parseFloat(loc.lat);
+                            const lon = parseFloat(loc.lon);
+                            bounds.push([lat, lon]);
+                            if (index !== 0) {
+                                const marker = L.marker([lat, lon]).addTo(map);
+                                marker.bindPopup(`<strong>${name}</strong>`);
+                            }
                         }
-
-                        // 先頭以外の地点については通常どおり Leaflet のマーカーを生成し、地図に追加する。
-                        const marker = L.marker([lat, lon]).addTo(map);
-
-                        // ポップアップには地名を強調表示してセット。これによりクリック時に地名が明示される。
-                        marker.bindPopup(`<strong>${name}</strong>`);
                     }
-                }
 
-                // bounds に 1 つ以上の座標が登録されていれば fitBounds を呼び出し、
-                // 全地点が見切れず収まるようにパンとズームを Leaflet に任せて調整させる。padding 50 は余白確保のため。
-                if (bounds.length > 0) {
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                }
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                })();
+
+                return map;
             }
 
-            // 非同期関数をキックしてジオコーディングとマーカー配置プロセスを開始。返り値の Promise は今回待たず、
-            // イベントループに処理を預けつつ UI をブロックしない設計にしている。
-            addMarkers();
+            // 1枚目: 東京駅は範囲のみ寄与、フィリピンにマーカー
+            createMap("map1", ["東京駅", "フィリピン"]);
+
+            // 2枚目: 東京駅は範囲のみ寄与、大坂にマーカー（ユーザー指定）
+            createMap("map2", ["東京駅", "大坂"]);
         </script>
     </body>
 

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <!-- ブラウザーを標準モードで動作させるために DOCTYPE を明示 -->
 <html lang="ja">
 
@@ -9,81 +9,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <!-- Leaflet 公式 CDN からスタイルシートを読み込む -->
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <style>
-            html, body {
-                height: 100%;
-                margin: 0;
-                /* 既定の余白を外しフレックスレイアウトを端まで広げる */
-            }
-
-            /* カードをまとめて並べ替えるラッパー領域 */
-            #wrap {
-                display: flex;
-                /* フレックス配置で狭い画面でも自然に折り返す */
-                flex-wrap: wrap;
-                /* 折り返し設定でカードが増えても横スクロールを防ぐ */
-                gap: 12px;
-                /* gap プロパティで余計な入れ子を増やさず均等な間隔を確保 */
-                padding: 12px;
-                /* パディングでカードがビューポートに直接触れないようにする */
-                align-items: flex-start;
-                /* 上揃えにして高さが違っても見出し位置を揃える */
-            }
-
-            /* 地図表示用のシンプルなカード枠 */
-            .card {
-                width: 300px;
-                /* 幅を固定して各カードの見た目を揃える */
-                height: 400px;
-                /* よくある地図の縦横比が保てる高さに設定 */
-                border: 1px solid #ddd;
-                /* 無彩色の枠線でカード同士の区切りを示す */
-                border-radius: 4px;
-                /* 角を少し丸めて印象を柔らかくする */
-                background: #fff;
-                /* 背景を白にして地図キャンバスの視認性を高める */
-                display: flex;
-                flex-direction: column;
-                /* カラム方向に並べて見出し・地図・フッターを縦に配置 */
-            }
-
-            .card-header {
-            /* 見出しには地名などのタイトルを表示 */
-                padding: 8px 10px;
-                font-size: 14px;
-                /* ヘッダー内でも読みやすい文字サイズに調整 */
-                border-bottom: 1px solid #eee;
-                /* 控えめな罫線でヘッダーと地図を区切る */
-            }
-
-            .card-footer {
-            /* フッターは補足情報や凡例の表示用に確保 */
-                padding: 6px 8px;
-                /* パディングを少し狭めて密度の違いを出す */
-                font-size: 12px;
-                /* 小さめの文字で補助的な情報だと示す */
-                border-top: 1px solid #eee;
-                color: #666;
-                /* 目立ち過ぎない色で視認性と控えめさを両立 */
-            }
-
-            /* ページ全体で共有するクレジット枠 */
-            .site-footer {
-            /* サイト下部で地図のクレジットをまとめて表示 */
-                padding: 8px 12px;
-                /* カード間隔と揃うようパディングを設定 */
-                font-size: 12px;
-                color: #666;
-                border-top: 1px solid #eee;
-            }
-
-            /* カード内で残りの高さを地図領域に割り当てる */
-            .map {
-            /* フレックスで余った縦方向を地図キャンバスが埋める */
-                flex: 1 1 auto;
-                min-height: 0; /* フレックス子要素の高さ計算を安定させるため */
-            }
-        </style>
+        <link rel="stylesheet" href="./mapStyles.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+        <script src="./mapHelpers.js" defer></script>
     </head>
 
     <body>
@@ -109,8 +37,6 @@
             </small>
         </div>
 
-        <!-- Leaflet 本体のスクリプトを読み込む -->
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
         <!-- このページ用スクリプトでジオコーディングと Leaflet を連携 -->
         <script>
@@ -135,68 +61,7 @@
                 // 空文字を入れて "undefined" や "null" が表示されるのを防ぐ
             }
 
-            // 簡易ジオコーディング関数（ヒットしなければ null を返す）
-            async function geocode(placeName) {
-                // 処理は軽量に保ち、null 時の扱いは呼び出し側に委ねる
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(placeName)}&limit=1`;
-                // encodeURIComponent でマルチバイト文字を安全にエンコードする
-                const res = await fetch(url, { headers: { "Accept-Language": "ja" } });
-                // Accept-Language を指定して日本語ラベルがあれば優先させる
-                const data = await res.json();
-                // 本番運用では res.ok の確認や独自 User-Agent の付与が必要
-                if (data && data.length > 0) {
-                    const loc = data[0];
-                    // Nominatim が返す値は文字列なので使用前に数値へ変換する
-                    return [parseFloat(loc.lat), parseFloat(loc.lon)];
-                    // 呼び出し側には Leaflet でそのまま使える [lat, lon] 配列を渡す
-                }
-                return null;
-                // null が返ったら起点のみ表示する判断を呼び出し側に促す
-            }
 
-            function createMap(containerId, startPoint, placeName) {
-                // カードごとに別インスタンスを持たせて状態を分離する
-                const map = L.map(containerId, { attributionControl: false }).setView(startPoint.center, startPoint.zoom);
-                // クレジットはフッターにまとめるので attributionControl は無効化
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
-                // 標準の OSM タイルで、URL を変えれば他プロバイダーにも差し替えられる
-
-                const bounds = [];
-                // 領域配列は fitBounds の計算にも流用する
-
-                async function addPlace() {
-                    // 内側に非同期処理をまとめて外側の API は同期的に見せる
-                    bounds.push(startPoint.center);
-                    // 起点座標を記録して表示範囲の基準を作る
-
-                    if (placeName) {
-                        // 地名が指定されている場合だけジオコーディングを行う
-                        const latLng = await geocode(placeName); // [緯度, 経度]
-                        // await で座標取得が終わってから地図状態を更新する
-                        if (latLng) {
-                            bounds.push(latLng);
-                            // 緯度経度を追加して起点と目的地の両方を fitBounds で収める
-                            const marker = L.marker(latLng).addTo(map);
-                            // マーカーで取得地点を視覚的に示す
-                            marker.bindPopup(`<strong>${placeName}</strong>`);
-                            // ポップアップを太字にしてヘッダーと同じ情報を強調する
-                        }
-                    }
-
-                    if (bounds.length > 1) {
-                        // 複数地点が集まった場合は自動的に表示範囲を調整
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                        // パディングでマーカーがカード端に寄り過ぎないようにする
-                    } else {
-                        map.setView(startPoint.center, startPoint.zoom);
-                        // それ以外は呼び出し元が指定したズーム値を維持
-                    }
-                }
-
-                addPlace();
-                // 発火させたら待たずに進め、ジオコーディング待ちで描画を止めない
-                return map;
-            }
 
             // カード UI と地図生成を束ねる薄いファサード。
             // ヘッダーを整えてから createMap に処理を委譲する。
@@ -205,14 +70,16 @@
                 return createMap(containerId, startPoint, placeName);
             }
 
-            // startPoint などの設定値は直前にまとめて定義
-            const startPoint = { name: "長野", center: [36.65, 138.19], zoom: 7 };
+            window.addEventListener("DOMContentLoaded", () => {
+                // startPoint などの設定値は DOM 構築後に定義
+                const startPoint = { name: "長野", center: [36.65, 138.19], zoom: 7 };
 
-            // 1 枚目のカード：起点は STARTPOINT、検索先のみマーカーを表示
-            setCardMap("map1", "フィリピン", startPoint, "フィリピン");
+                // 1 枚目のカード：起点は STARTPOINT、検索先のみマーカーを表示
+                setCardMap("map1", "フィリピン", startPoint, "フィリピン");
 
-            // 2 枚目のカード：同じ起点で別の地名を検索表示
-            setCardMap("map2", "大坂", startPoint, "大坂");
+                // 2 枚目のカード：同じ起点で別の地名を検索表示
+                setCardMap("map2", "大坂", startPoint, "大坂");
+            });
         </script>
         <!-- 必要最低限のマークアップ構成で body を閉じる -->
     </body>

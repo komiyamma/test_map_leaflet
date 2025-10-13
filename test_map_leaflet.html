@@ -118,7 +118,7 @@
                 const bounds = [];
 
                 // Configure the title shown in the card header
-                const titleText = opts.title || (placeName || startPoint.name);
+                const titleText = placeName;
                 setCardHeader(containerId, titleText);
 
                 async function addPlace() {
@@ -148,7 +148,7 @@
             const startPoint = { name: "長野", center: [36.65, 138.19], zoom: 7 };
 
             // 1枚目（起点は STARTPOINT、起点はマーカー無し）
-            createMap("map1", startPoint, "フィリピン" });
+            createMap("map1", startPoint, "フィリピン");
 
             // 2枚目（起点は STARTPOINT、起点はマーカー無し）
             createMap("map2", startPoint, "大坂");

@@ -116,43 +116,36 @@ function createMap(containerId, startPoint, placeName) {
 ### 3.1. HTML要素の操作（DOM操作）
 
 `setCardHeader` 関数は、JavaScriptでHTMLの一部を書き換える「DOM操作」の例です。
+このサンプルでは、ヘッダー要素にあらかじめ `map1-header` のような `id` を付けておき、それを直接JavaScriptから操作する、堅実で分かりやすい方法を採用しています。
 
-```javascript
-function setCardHeader(containerId, titleText) {
-    const mapEl = document.getElementById(containerId);
-    if (!mapEl) return;
-    const headerEl = mapEl.previousElementSibling; // ★注目
-    // ...
-    headerEl.textContent = titleText;
-}
-```
-
-#### 躓きポイント
-
-*   **`document.getElementById(containerId)`:** `document` はHTML文書全体を指します。`getElementById` は、指定された `id` を持つHTML要素を探して、それをJavaScriptで操作できるようにします。
-*   **`.previousElementSibling`:** 取得したHTML要素の「一つ前の兄弟要素」を取得します。これはHTMLの構造に強く依存するため、例えば `map` 要素の前に別の要素が追加されると、意図通りに動かなくなる可能性があります。
-
-#### 代替案：より具体的なIDを直接指定する
-
-HTMLの構造に依存する書き方は不安定な場合があるため、書き換えたいヘッダー要素にも `id` を付けて直接指定する方が確実です。
-
-**HTMLの修正案:**
+**HTML側:**
 ```html
 <div id="map1-header" class="card-header"></div>
 <div id="map1" class="map"></div>
 ```
 
-**JavaScriptの修正案:**
+**JavaScript側:**
 ```javascript
 function setCardHeader(headerId, titleText) {
     const headerEl = document.getElementById(headerId);
-    if (headerEl) {
-        headerEl.textContent = titleText;
-    }
+
+    // ヘッダー要素が取得できない場合は静かに中断
+    if (!headerEl) return;
+
+    // 空文字を入れて "undefined" や "null" などが出ないようにする
+    headerEl.textContent = titleText || '';
 }
-// 呼び出し方も変更
+
+// 呼び出し
 setCardHeader("map1-header", "フィリピン");
 ```
+
+#### ポイント
+
+*   **`document.getElementById(headerId)`:** `document` はHTML文書全体を指すオブジェクトです。`getElementById` は、その中から指定された `id` を持つHTML要素を探し出し、JavaScriptで操作できるようにします。`id` はページ内でユニーク（一意）であるため、最も確実な要素の特定方法です。
+*   **`!headerEl` でのチェック:** `getElementById` は、もし指定された `id` が見つからなかった場合に `null` を返します。`if (!headerEl) return;` の一行は、「もし `headerEl` が `null` なら、何もせずに関数を終了する」という意味の安全装置です。これにより、意図しないエラーでプログラム全体が止まるのを防ぎます。
+*   **`.textContent` への代入:** これが実際にHTML要素のテキストを書き換えている部分です。`titleText || ''` は、もし `titleText` が `undefined` や `null` であってもエラーにならず、代わりに空文字が設定されるようにするための、ちょっとしたテクニックです。
+
 
 ### 3.2. ページの読み込みを待つ `DOMContentLoaded`
 

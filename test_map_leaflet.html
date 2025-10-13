@@ -164,11 +164,6 @@
                 const bounds = [];
                 // 領域配列は fitBounds の計算にも流用する
 
-                // カードの見出しに表示するタイトル文字列を決める
-                const titleText = placeName;
-                // 入力された地名をそのまま使って分かりやすさを保つ
-                setCardHeader(containerId, titleText);
-
                 async function addPlace() {
                     // 内側に非同期処理をまとめて外側の API は同期的に見せる
                     bounds.push(startPoint.center);
@@ -203,14 +198,21 @@
                 return map;
             }
 
+            // カード UI と地図生成を束ねる薄いファサード。
+            // ヘッダーを整えてから createMap に処理を委譲する。
+            function setCardMap(containerId, headerText, startPoint, placeName) {
+                setCardHeader(containerId, headerText);
+                return createMap(containerId, startPoint, placeName);
+            }
+
             // startPoint などの設定値は直前にまとめて定義
             const startPoint = { name: "長野", center: [36.65, 138.19], zoom: 7 };
 
             // 1 枚目のカード：起点は STARTPOINT、検索先のみマーカーを表示
-            createMap("map1", startPoint, "フィリピン");
+            setCardMap("map1", "フィリピン", startPoint, "フィリピン");
 
             // 2 枚目のカード：同じ起点で別の地名を検索表示
-            createMap("map2", startPoint, "大坂");
+            setCardMap("map2", "大坂", startPoint, "大坂");
         </script>
         <!-- 必要最低限のマークアップ構成で body を閉じる -->
     </body>

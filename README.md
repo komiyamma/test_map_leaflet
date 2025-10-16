@@ -1,6 +1,7 @@
 # 地図表示サンプル (Leaflet.js)
 
-このリポジトリは、Webページにインタラクティブな地図を表示するためのライブラリ `Leaflet.js` の基本的な使い方を学ぶためのサンプルプロジェクトです。
+このリポジトリは、Webページにインタラクティブな地図を表示するためのライブラリ `Leaflet.js` の基本的な使い方を学ぶためのサンプルプロジェクトです。  
+- https://komiyamma.github.io/test_map_leaflet/test_map_leaflet.html
 
 ## プロジェクトの目的
 

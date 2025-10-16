@@ -2,8 +2,27 @@
  * Leaflet で複数ページから共有したい地図関連ユーティリティ。
  * グローバルに Leaflet (L) が読み込まれている前提で記述している。
  */
+/* global L */
+
+/**
+ * 緯度・経度を [lat, lon] 形式で扱うタプル。
+ * @typedef {[number, number]} LatLngTuple
+ */
+
+/**
+ * マップの初期中心座標とズームレベルの設定。
+ * @typedef {Object} MapStartPoint
+ * @property {LatLngTuple} center - 初期表示する緯度経度。
+ * @property {number} zoom - 初期ズームレベル。
+ */
+
 
 // 簡易ジオコーディング関数（ヒットしなければ null を返す）
+/**
+ * Nominatim を呼び出して地名から座標を取得する。
+ * @param {string} [placeName] - 検索対象の地名（省略可）。
+ * @returns {Promise<LatLngTuple|null>} 取得に成功したら座標、失敗時は null。
+ */
 async function geocode(placeName) {
     if (!placeName) return null;
     // 引数は外部から渡され、null なら即座に終了するようにする
@@ -24,6 +43,13 @@ async function geocode(placeName) {
 }
 
 // Leaflet マップ生成とジオコーディング済みマーカーの追加を一括で行う
+/**
+ * Leaflet マップを生成し、任意で検索した地点をハイライトする。
+ * @param {string} containerId - マップを描画する要素 ID。
+ * @param {MapStartPoint} startPoint - 初期中心とズームの設定。
+ * @param {string} [placeName] - マーカー表示したい地名（任意）。
+ * @returns {import("leaflet").Map} Leaflet の Map インスタンス。
+ */
 function createMap(containerId, startPoint, placeName) {
     // カード内で Leaflet マップを生成し既定の表示位置を設定
     const map = L.map(containerId, { attributionControl: false }).setView(startPoint.center, startPoint.zoom);
@@ -31,6 +57,7 @@ function createMap(containerId, startPoint, placeName) {
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
     // OSM の汎用タイル。URL を変えれば別プロバイダーに差し替え可能
 
+    /** @type {LatLngTuple[]} */
     const bounds = [];
     // 表示範囲を fitBounds で調整するための配列
 
@@ -67,3 +94,6 @@ function createMap(containerId, startPoint, placeName) {
     // 非同期処理をトリガー。エラー制御は必要に応じて追加
     return map;
 }
+
+
+

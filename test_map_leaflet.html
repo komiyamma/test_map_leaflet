@@ -66,8 +66,9 @@
             }
 
             window.addEventListener("DOMContentLoaded", () => {
-                // startPoint などの設定値は DOM 構築後に定義
-                const startPoint = { name: "長野", center: [36.65, 138.19], zoom: 7 };
+                // startPoint などの設定値は DOM 構築後に定義。
+                // この座標は「日本の真ん中」あたり。
+                const startPoint = { center: [36.65, 138.19], zoom: 7 };
 
                 // 1 枚目のカード：起点は STARTPOINT、検索先のみマーカーを表示
                 setCardMap("map1", "フィリピン", startPoint, "フィリピン");
